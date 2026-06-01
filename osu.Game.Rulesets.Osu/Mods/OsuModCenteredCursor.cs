@@ -137,7 +137,7 @@ namespace osu.Game.Rulesets.Osu.Mods
                 Action<Drawable> backgroundAction = null!;
                 backgroundAction = _ => player.ApplyToBackground(bsb =>
                 {
-                    if (isExited(player)) // Background screen beatmap persists upon exiting the play, so manual event removal and its repositioning to x = 0 is necessary
+                    if (isExited(player)) // Background screen beatmap persists upon exiting the play, so manual event removal and its repositioning to (x, y) = (0, 0) is necessary
                     {
                         bsb.OnUpdate -= backgroundAction;
                         bsb.MoveTo(Vector2.Zero);
