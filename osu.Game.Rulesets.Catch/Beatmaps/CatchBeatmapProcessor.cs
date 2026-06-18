@@ -3,6 +3,7 @@
 
 using System;
 using System.Linq;
+using osu.Framework.Logging;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Catch.Objects;
 using osu.Game.Rulesets.Catch.UI;
@@ -211,6 +212,12 @@ namespace osu.Game.Rulesets.Catch.Beatmaps
 
         private static void initialiseHyperDash(IBeatmap beatmap)
         {
+            // Debug: To investigate the effects of bananas
+            int[] bananaStartTimes = CatchBeatmap.GetPalpableObjects(beatmap.HitObjects)
+                                                 .Where(h => h is Banana)
+                                                 .Select(h => (int)h.StartTime)
+                                                 .ToArray();
+
             var palpableObjects = CatchBeatmap.GetPalpableObjects(beatmap.HitObjects)
                                               .Where(h => h is Fruit || (h is Droplet && h is not TinyDroplet))
                                               .ToArray();
@@ -245,6 +252,10 @@ namespace osu.Game.Rulesets.Catch.Beatmaps
                 {
                     currentObject.HyperDashTarget = nextObject;
                     lastExcess = halfCatcherWidth;
+
+                    // Debug: If between the hyper and the hyper dash target start time there exists a banana, log it as proof that the hyper dash target may be uncatchable if going for a full combo
+                    if (bananaStartTimes.Any(bananaStartTime => bananaStartTime >= currentObject.StartTime && bananaStartTime <= currentObject.HyperDashTarget.StartTime))
+                        Logger.Log($"For osu!catch, please investigate {beatmap.BeatmapInfo} for a banana potentially preventing an FC after time {currentObject.StartTime}.");
                 }
                 else
                 {
