@@ -89,7 +89,7 @@ namespace osu.Game.Database
 
                 clearOutdatedStarRatings();
                 //populateMissingStarRatings(); // Redundant when refreshing all star ratings for osu!catch banana debugging in the next line
-                refreshAllStarRatings(); Logger.Log("Here are beatmaps for banana debugging: " + string.Join(", ", BeatmapProcessor.BeatmapsToInvestigate));
+                refreshAllFruitsStarRatings(); Logger.Log("Here are beatmaps for banana debugging: " + string.Join(", ", BeatmapProcessor.BeatmapsToInvestigate));
                 processOnlineBeatmapSetsWithNoUpdate();
                 // Note that the previous method will also update these on a fresh run.
                 processBeatmapsWithMissingObjectCounts();
@@ -232,7 +232,7 @@ namespace osu.Game.Database
         /// This is <see cref="populateMissingStarRatings"/> but adjusted to refresh all star ratings
         /// regardless of previous cache.
         /// </remarks>
-        private void refreshAllStarRatings() // This takes advantage of the debugging that can be done in initialiseHyperDash, only when osu!catch map is native
+        private void refreshAllFruitsStarRatings() // This takes advantage of the debugging that can be done in initialiseHyperDash, only when osu!catch map is native
         {
             HashSet<Guid> beatmapIds = new HashSet<Guid>();
 
@@ -240,10 +240,10 @@ namespace osu.Game.Database
 
             realmAccess.Run(r =>
             {
-                // CatchRuleset is inaccessible for some reason which involves its SHORT_NAME. "fruits" therefore would need to be typed manually.
-                // However, potential todo: to get only osu!catch maps, limiting to this short name does not seem to work, so instead the approach is refresh all beatmaps w.r.t. to their native mode
+                // CatchRuleset is inaccessible for some reason which involves its SHORT_NAME. "fruits" therefore is manually.
                 foreach (var b in r.All<BeatmapInfo>().Where(b => b.BeatmapSet != null))
-                    beatmapIds.Add(b.ID);
+                    if (b.Ruleset.ShortName.Equals("fruits", StringComparison.Ordinal)) // This check in Where does not work, so it is done after that
+                        beatmapIds.Add(b.ID);
             });
 
             Logger.Log($"Found {beatmapIds.Count} beatmaps which require star rating reprocessing.");
