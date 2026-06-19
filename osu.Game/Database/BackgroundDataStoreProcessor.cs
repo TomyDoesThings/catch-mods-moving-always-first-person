@@ -89,7 +89,7 @@ namespace osu.Game.Database
 
                 clearOutdatedStarRatings();
                 //populateMissingStarRatings(); // Redundant when refreshing all star ratings for osu!catch banana debugging in the next line
-                refreshAllStarRatings(); Logger.Log("Here are beatmaps for banana debugging: " + string.Join(",", BeatmapProcessor.BeatmapsToInvestigate));
+                refreshAllStarRatings(); Logger.Log("Here are beatmaps for banana debugging: " + string.Join(", ", BeatmapProcessor.BeatmapsToInvestigate));
                 processOnlineBeatmapSetsWithNoUpdate();
                 // Note that the previous method will also update these on a fresh run.
                 processBeatmapsWithMissingObjectCounts();
