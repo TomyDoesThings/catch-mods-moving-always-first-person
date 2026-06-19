@@ -88,7 +88,8 @@ namespace osu.Game.Database
                 Logger.Log("Beginning background data store processing..");
 
                 clearOutdatedStarRatings();
-                populateMissingStarRatings();
+                //populateMissingStarRatings(); // Redundant when refreshing all star ratings for osu!catch banana debugging in the next line
+                refreshAllStarRatings(); Logger.Log("Here are beatmaps for banana debugging: " + string.Join(",", BeatmapProcessor.BeatmapsToInvestigate));
                 processOnlineBeatmapSetsWithNoUpdate();
                 // Note that the previous method will also update these on a fresh run.
                 processBeatmapsWithMissingObjectCounts();
@@ -167,6 +168,83 @@ namespace osu.Game.Database
 
             if (beatmapIds.Count == 0)
                 return;
+
+            Logger.Log($"Found {beatmapIds.Count} beatmaps which require star rating reprocessing.");
+
+            var notification = showProgressNotification(beatmapIds.Count, "Reprocessing star rating for beatmaps", "beatmaps' star ratings have been updated");
+
+            int processedCount = 0;
+            int failedCount = 0;
+
+            Dictionary<string, Ruleset> rulesetCache = new Dictionary<string, Ruleset>();
+
+            Ruleset getRuleset(RulesetInfo rulesetInfo)
+            {
+                if (!rulesetCache.TryGetValue(rulesetInfo.ShortName, out var ruleset))
+                    ruleset = rulesetCache[rulesetInfo.ShortName] = rulesetInfo.CreateInstance();
+
+                return ruleset;
+            }
+
+            foreach (Guid id in beatmapIds)
+            {
+                if (notification?.State == ProgressNotificationState.Cancelled)
+                    break;
+
+                updateNotificationProgress(notification, processedCount, beatmapIds.Count);
+
+                sleepIfRequired();
+
+                var beatmap = realmAccess.Run(r => r.Find<BeatmapInfo>(id)?.Detach());
+
+                if (beatmap == null)
+                    return;
+
+                try
+                {
+                    var working = beatmapManager.GetWorkingBeatmap(beatmap);
+                    var ruleset = getRuleset(working.BeatmapInfo.Ruleset);
+
+                    Debug.Assert(ruleset != null);
+
+                    var calculator = ruleset.CreateDifficultyCalculator(working);
+
+                    double starRating = calculator.Calculate().StarRating;
+                    realmAccess.Write(r =>
+                    {
+                        if (r.Find<BeatmapInfo>(id) is BeatmapInfo liveBeatmapInfo)
+                            liveBeatmapInfo.StarRating = starRating;
+                    });
+                    ((IWorkingBeatmapCache)beatmapManager).Invalidate(beatmap);
+                    ++processedCount;
+                }
+                catch (Exception e)
+                {
+                    Logger.Log($"Background processing failed on {beatmap}: {e}");
+                    ++failedCount;
+                }
+            }
+
+            completeNotification(notification, processedCount, beatmapIds.Count, failedCount);
+        }
+
+        /// <remarks>
+        /// This is <see cref="populateMissingStarRatings"/> but adjusted to refresh all star ratings
+        /// regardless of previous cache.
+        /// </remarks>
+        private void refreshAllStarRatings() // This takes advantage of the debugging that can be done in initialiseHyperDash, only when osu!catch map is native
+        {
+            HashSet<Guid> beatmapIds = new HashSet<Guid>();
+
+            Logger.Log("Querying all beatmaps for star rating recalculation...");
+
+            realmAccess.Run(r =>
+            {
+                // CatchRuleset is inaccessible for some reason which involves its SHORT_NAME. "fruits" therefore would need to be typed manually.
+                // However, potential todo: to get only osu!catch maps, limiting to this short name does not seem to work, so instead the approach is refresh all beatmaps w.r.t. to their native mode
+                foreach (var b in r.All<BeatmapInfo>().Where(b => b.BeatmapSet != null))
+                    beatmapIds.Add(b.ID);
+            });
 
             Logger.Log($"Found {beatmapIds.Count} beatmaps which require star rating reprocessing.");
 

@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
@@ -210,9 +211,10 @@ namespace osu.Game.Rulesets.Catch.Beatmaps
             }
         }
 
-        private static void initialiseHyperDash(IBeatmap beatmap)
+        private static void initialiseHyperDash(IBeatmap beatmap) // Public purely for testing so this can be fully automatic
         {
             // Debug: To investigate the effects of bananas
+            List<int> hyperFruitsAffectedByBanana = new List<int>();
             int[] bananaStartTimes = CatchBeatmap.GetPalpableObjects(beatmap.HitObjects)
                                                  .Where(h => h is Banana)
                                                  .Select(h => (int)h.StartTime)
@@ -255,7 +257,7 @@ namespace osu.Game.Rulesets.Catch.Beatmaps
 
                     // Debug: If between the hyper and the hyper dash target start time there exists a banana, log it as proof that the hyper dash target may be uncatchable if going for a full combo
                     if (bananaStartTimes.Any(bananaStartTime => bananaStartTime >= currentObject.StartTime && bananaStartTime <= currentObject.HyperDashTarget.StartTime))
-                        Logger.Log($"For osu!catch, please investigate {beatmap.BeatmapInfo} for a banana potentially preventing an FC after time {currentObject.StartTime}.");
+                        hyperFruitsAffectedByBanana.Add((int)currentObject.StartTime);
                 }
                 else
                 {
@@ -264,6 +266,16 @@ namespace osu.Game.Rulesets.Catch.Beatmaps
                 }
 
                 lastDirection = thisDirection;
+            }
+
+            if (hyperFruitsAffectedByBanana.Count > 0)
+            {
+                BeatmapsToInvestigate.Add(beatmap.BeatmapInfo.ToString());
+                Logger.Log($"For osu!catch, please investigate {beatmap.BeatmapInfo} for a banana potentially preventing an FC after these times: {string.Join(", ", hyperFruitsAffectedByBanana)}.");
+            }
+            else
+            {
+                Logger.Log("No banana investigating needed here, feel free to proceed.");
             }
         }
     }
