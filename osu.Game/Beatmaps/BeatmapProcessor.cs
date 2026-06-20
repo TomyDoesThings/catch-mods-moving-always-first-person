@@ -12,7 +12,8 @@ namespace osu.Game.Beatmaps
     /// </summary>
     public class BeatmapProcessor : IBeatmapProcessor
     {
-        public static HashSet<string> BeatmapsToInvestigate = new HashSet<string>(); // For osu!catch banana debugging
+        public static readonly HashSet<string> BEATMAPS_TO_INVESTIGATE = new HashSet<string>(); // For osu!catch banana debugging
+        public const bool FRUITS_HARD_ROCK_AS_NO_MOD_DEBUG = true; // Adjust to true or false then re-run as needed for osu!catch banana debugging
 
         public IBeatmap Beatmap { get; }
 

@@ -89,7 +89,7 @@ namespace osu.Game.Database
 
                 clearOutdatedStarRatings();
                 //populateMissingStarRatings(); // Redundant when refreshing all star ratings for osu!catch banana debugging in the next line
-                refreshAllFruitsStarRatings(); Logger.Log("Here are beatmaps for banana debugging: " + string.Join(", ", BeatmapProcessor.BeatmapsToInvestigate));
+                refreshAllFruitsStarRatings(); Logger.Log($"Here are beatmaps for banana debugging (Hard Rock: {BeatmapProcessor.FRUITS_HARD_ROCK_AS_NO_MOD_DEBUG}): {string.Join(", ", BeatmapProcessor.BEATMAPS_TO_INVESTIGATE)}");
                 processOnlineBeatmapSetsWithNoUpdate();
                 // Note that the previous method will also update these on a fresh run.
                 processBeatmapsWithMissingObjectCounts();
@@ -236,7 +236,7 @@ namespace osu.Game.Database
         {
             HashSet<Guid> beatmapIds = new HashSet<Guid>();
 
-            Logger.Log("Querying all beatmaps for star rating recalculation...");
+            Logger.Log("Querying all osu!catch beatmaps for star rating recalculation...");
 
             realmAccess.Run(r =>
             {
@@ -246,9 +246,9 @@ namespace osu.Game.Database
                         beatmapIds.Add(b.ID);
             });
 
-            Logger.Log($"Found {beatmapIds.Count} beatmaps which require star rating reprocessing.");
+            Logger.Log($"Found {beatmapIds.Count} osu!catch beatmaps which require star rating reprocessing.");
 
-            var notification = showProgressNotification(beatmapIds.Count, "Reprocessing star rating for beatmaps", "beatmaps' star ratings have been updated");
+            var notification = showProgressNotification(beatmapIds.Count, "Reprocessing star rating for osu!catch beatmaps", "osu!catch beatmaps' star ratings have been updated");
 
             int processedCount = 0;
             int failedCount = 0;

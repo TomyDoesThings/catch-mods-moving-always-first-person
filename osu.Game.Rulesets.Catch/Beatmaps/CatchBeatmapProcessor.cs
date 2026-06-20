@@ -26,6 +26,19 @@ namespace osu.Game.Rulesets.Catch.Beatmaps
 
         public override void PreProcess()
         {
+            if (FRUITS_HARD_ROCK_AS_NO_MOD_DEBUG)
+            {
+                // Base ModHardRock
+                const float adjust_ratio = 1.4f;
+
+                Beatmap.Difficulty.DrainRate = Math.Min(Beatmap.Difficulty.DrainRate * adjust_ratio, 10.0f);
+
+                // CatchModHardRock
+                Beatmap.Difficulty.OverallDifficulty = Math.Min(Beatmap.Difficulty.OverallDifficulty * adjust_ratio, 10.0f);
+                Beatmap.Difficulty.CircleSize = Math.Min(Beatmap.Difficulty.CircleSize * 1.3f, 10.0f); // CS uses a custom 1.3 ratio.
+                Beatmap.Difficulty.ApproachRate = Math.Min(Beatmap.Difficulty.ApproachRate * adjust_ratio, 10.0f);
+            }
+
             IHasComboInformation? lastObj = null;
 
             // For sanity, ensures that both the first hitobject and the first hitobject after a banana shower start a new combo.
@@ -75,7 +88,7 @@ namespace osu.Game.Rulesets.Catch.Beatmaps
                 switch (obj)
                 {
                     case Fruit fruit:
-                        if (HardRockOffsets)
+                        if (HardRockOffsets || FRUITS_HARD_ROCK_AS_NO_MOD_DEBUG)
                             applyHardRockOffset(fruit, ref lastPosition, ref lastStartTime, rng);
                         break;
 
@@ -270,7 +283,7 @@ namespace osu.Game.Rulesets.Catch.Beatmaps
 
             if (hyperFruitsAffectedByBanana.Count > 0)
             {
-                BeatmapsToInvestigate.Add(beatmap.BeatmapInfo.ToString());
+                BEATMAPS_TO_INVESTIGATE.Add(beatmap.BeatmapInfo.ToString());
                 Logger.Log($"For osu!catch, please investigate {beatmap.BeatmapInfo} for a banana potentially preventing an FC after these times: {string.Join(", ", hyperFruitsAffectedByBanana)}.");
             }
             else

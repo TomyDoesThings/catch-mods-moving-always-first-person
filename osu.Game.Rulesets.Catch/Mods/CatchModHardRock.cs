@@ -12,12 +12,18 @@ namespace osu.Game.Rulesets.Catch.Mods
     {
         public void ApplyToBeatmapProcessor(IBeatmapProcessor beatmapProcessor)
         {
+            if (CatchBeatmapProcessor.FRUITS_HARD_ROCK_AS_NO_MOD_DEBUG)
+                return;
+
             var catchProcessor = (CatchBeatmapProcessor)beatmapProcessor;
             catchProcessor.HardRockOffsets = true;
         }
 
         public override void ApplyToDifficulty(BeatmapDifficulty difficulty)
         {
+            if (CatchBeatmapProcessor.FRUITS_HARD_ROCK_AS_NO_MOD_DEBUG)
+                return;
+
             base.ApplyToDifficulty(difficulty);
 
             difficulty.OverallDifficulty = Math.Min(difficulty.OverallDifficulty * ADJUST_RATIO, 10.0f);
