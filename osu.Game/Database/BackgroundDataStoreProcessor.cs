@@ -234,21 +234,35 @@ namespace osu.Game.Database
         /// </remarks>
         private void refreshAllFruitsStarRatings() // This takes advantage of the debugging that can be done in initialiseHyperDash, only when osu!catch map is native
         {
-            HashSet<Guid> beatmapIds = new HashSet<Guid>();
+            const bool include_fruits_converts = true; // Adjust to true or false then re-run as needed for osu!catch banana debugging
 
-            Logger.Log("Querying all osu!catch beatmaps for star rating recalculation...");
+            HashSet<Guid> nativeFruitsBeatmapIds = new HashSet<Guid>();
+
+            Logger.Log($"Querying all native {(include_fruits_converts ? "and convert " : string.Empty)}osu!catch beatmaps for star rating recalculation...");
 
             realmAccess.Run(r =>
             {
-                // CatchRuleset is inaccessible for some reason which involves its SHORT_NAME. "fruits" therefore is manually.
+                // CatchRuleset is inaccessible for some reason which involves its SHORT_NAME. "fruits" therefore is manually
                 foreach (var b in r.All<BeatmapInfo>().Where(b => b.BeatmapSet != null))
-                    if (b.Ruleset.ShortName.Equals("fruits", StringComparison.Ordinal)) // This check in Where does not work, so it is done after that
-                        beatmapIds.Add(b.ID);
+                    if (b.Ruleset.ShortName.Equals("fruits", StringComparison.Ordinal)) // This check in Where does not work
+                        nativeFruitsBeatmapIds.Add(b.ID);
             });
 
-            Logger.Log($"Found {beatmapIds.Count} osu!catch beatmaps which require star rating reprocessing.");
+            if (nativeFruitsBeatmapIds.Count == 0) // PLEASE READ ME: At least one native osu!catch beatmap must be downloaded
+                return;
 
-            var notification = showProgressNotification(beatmapIds.Count, "Reprocessing star rating for osu!catch beatmaps", "osu!catch beatmaps' star ratings have been updated");
+            string? spoofedFruitsRulesetInstantiationInfo = null;
+            realmAccess.Run(r =>
+            {
+                if (r.Find<BeatmapInfo>(nativeFruitsBeatmapIds.First()) is BeatmapInfo b)
+                    spoofedFruitsRulesetInstantiationInfo = b.Ruleset.InstantiationInfo;
+            });
+            if (spoofedFruitsRulesetInstantiationInfo == null)
+                return;
+
+            Logger.Log($"Found {nativeFruitsBeatmapIds.Count} native osu!catch beatmaps which require star rating reprocessing.");
+
+            var notification = showProgressNotification(nativeFruitsBeatmapIds.Count, $"Reprocessing star rating for native osu!catch beatmaps with Eternal Hard Rock: {BeatmapProcessor.FRUITS_HARD_ROCK_AS_NO_MOD_DEBUG}", "native osu!catch beatmaps' star ratings have been updated");
 
             int processedCount = 0;
             int failedCount = 0;
@@ -263,12 +277,12 @@ namespace osu.Game.Database
                 return ruleset;
             }
 
-            foreach (Guid id in beatmapIds)
+            foreach (Guid id in nativeFruitsBeatmapIds)
             {
                 if (notification?.State == ProgressNotificationState.Cancelled)
                     break;
 
-                updateNotificationProgress(notification, processedCount, beatmapIds.Count);
+                updateNotificationProgress(notification, processedCount, nativeFruitsBeatmapIds.Count);
 
                 sleepIfRequired();
 
@@ -302,7 +316,81 @@ namespace osu.Game.Database
                 }
             }
 
-            completeNotification(notification, processedCount, beatmapIds.Count, failedCount);
+            completeNotification(notification, processedCount, nativeFruitsBeatmapIds.Count, failedCount);
+
+            if (!include_fruits_converts)
+                return;
+
+            HashSet<Guid> convertFruitsBeatmapIds = new HashSet<Guid>();
+
+            realmAccess.Run(r =>
+            {
+                // OsuRuleset is inaccessible for some reason which involves its SHORT_NAME. "osu" therefore is manually
+                foreach (var b in r.All<BeatmapInfo>().Where(b => b.BeatmapSet != null))
+                    if (b.Ruleset.ShortName.Equals("osu", StringComparison.Ordinal)) // This check in Where does not work
+                        convertFruitsBeatmapIds.Add(b.ID);
+            });
+
+            Logger.Log($"Found {convertFruitsBeatmapIds.Count} convert osu!catch beatmaps which require star rating reprocessing.");
+
+            notification = showProgressNotification(convertFruitsBeatmapIds.Count, $"Barbarically reprocessing star rating for convert osu!catch beatmaps and setting the osu!standard beatmaps' star rating to it in the process with Eternal Hard Rock: {BeatmapProcessor.FRUITS_HARD_ROCK_AS_NO_MOD_DEBUG}", "convert osu!catch beatmaps' star ratings have been updated");
+
+            processedCount = 0;
+            failedCount = 0;
+
+            rulesetCache = new Dictionary<string, Ruleset>();
+
+            // getRuleset is already defined
+
+            foreach (Guid id in convertFruitsBeatmapIds)
+            {
+                if (notification?.State == ProgressNotificationState.Cancelled)
+                    break;
+
+                updateNotificationProgress(notification, processedCount, convertFruitsBeatmapIds.Count);
+
+                sleepIfRequired();
+
+                var beatmap = realmAccess.Run(r => r.Find<BeatmapInfo>(id)?.Detach());
+
+                if (beatmap == null)
+                    return;
+
+                beatmap.Ruleset = new RulesetInfo // Make detached beatmap copy be fruits instead of osu
+                {
+                    OnlineID = 2, // CatchRuleset.LegacyID, would access but can't
+                    ShortName = @"fruits",
+                    Name = @"i am fruits",
+                    InstantiationInfo = spoofedFruitsRulesetInstantiationInfo,
+                    Available = true
+                };
+
+                try
+                {
+                    var working = beatmapManager.GetWorkingBeatmap(beatmap);
+                    var ruleset = getRuleset(working.BeatmapInfo.Ruleset);
+
+                    Debug.Assert(ruleset != null);
+
+                    var calculator = ruleset.CreateDifficultyCalculator(working);
+
+                    double starRating = calculator.Calculate().StarRating;
+                    realmAccess.Write(r =>
+                    {
+                        if (r.Find<BeatmapInfo>(id) is BeatmapInfo liveBeatmapInfo)
+                            liveBeatmapInfo.StarRating = starRating;
+                    });
+                    ((IWorkingBeatmapCache)beatmapManager).Invalidate(beatmap);
+                    ++processedCount;
+                }
+                catch (Exception e)
+                {
+                    Logger.Log($"Background processing failed on {beatmap}: {e}");
+                    ++failedCount;
+                }
+            }
+
+            completeNotification(notification, processedCount, convertFruitsBeatmapIds.Count, failedCount);
         }
 
         private void processOnlineBeatmapSetsWithNoUpdate()
